@@ -3,37 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>State Device Counts</title>
+    <title>Data Analytics Dashboard - Fetch Rewards</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
+        body {
+            background-color: #f0f8ff; /* Light blue background color */
+            padding: 20px; /* Add padding for content */
+            font-family: Arial, sans-serif; /* Use Arial font */
+        }
+        .header {
+            background-color: #283593; /* Fetch Rewards brand color */
+            color: #ffffff;
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 20px; /* Add space below the header */
+        }
+        .content {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+        .chart-container, .table-container {
+            flex-basis: 48%; /* Adjust width of containers */
+            padding: 20px;
+            background-color: #ffffff; /* White background for chart and table containers */
+            border-radius: 8px; /* Rounded corners for containers */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Drop shadow for containers */
+        }
         table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 20px;
         }
         table, th, td {
-            border: 1px solid black;
-        }
-        th, td {
-            padding: 8px;
+            border: 1px solid #dddddd;
             text-align: left;
+            padding: 8px;
+        }
+        th {
+            background-color: #283593;
+            color: #ffffff;
         }
     </style>
 </head>
 <body>
-    <h1>State Device Counts</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>State</th>
-                <th>GDP Classification</th>
-                <th>iOS Devices</th>
-                <th>Android Devices</th>
-                <th>Other Devices</th>
-                <th>Total Devices</th>
-            </tr>
-        </thead>
-        <tbody id="state-device-counts">
-        </tbody>
-    </table>
+    <div class="header">
+        <h1>Data Analytics Dashboard - Fetch Rewards</h1>
+    </div>
+    <div class="content">
+        <div class="chart-container">
+            <iframe src="/dash/" width="100%" height="600px"></iframe>
+        </div>
+        <div class="table-container">
+            <h2>State Device Counts</h2>
+            <table class="table">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>State</th>
+                        <th>GDP Classification</th>
+                        <th>iOS Devices</th>
+                        <th>Android Devices</th>
+                        <th>Other Devices</th>
+                        <th>Total Devices</th>
+                    </tr>
+                </thead>
+                <tbody id="state-device-counts">
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
         function updateTable() {
@@ -47,6 +85,7 @@
                     const sortedData = Object.entries(data).sort((a, b) => b[1].total - a[1].total);
 
                     for (const [state, counts] of sortedData) {
+                        const total = counts.ios + counts.android + counts.others;
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${state}</td>
@@ -54,7 +93,7 @@
                             <td>${counts.ios}</td>
                             <td>${counts.android}</td>
                             <td>${counts.others}</td>
-                            <td>${counts.total}</td>
+                            <td>${total}</td>
                         `;
                         tableBody.appendChild(row);
                     }

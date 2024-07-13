@@ -3,6 +3,11 @@ import json
 from collections import defaultdict
 from confluent_kafka import Consumer, KafkaError
 from flask import Flask, render_template, jsonify
+from threading import Thread
+import pandas as pd
+import plotly.graph_objects as go
+from dash import Dash, dcc, html
+from dash.dependencies import Input, Output
 
 # Dictionary mapping US state abbreviations to GDP classifications
 state_gdp = {
@@ -19,20 +24,28 @@ state_gdp = {
 }
 
 # Global variable to store state device counts
-state_device_counts = defaultdict(lambda: {'ios': 0, 'android': 0, 'others': 0, 'gdp': 'unknown', 'total': 0})
+state_device_counts = defaultdict(lambda: defaultdict(int))
+time_series_data = []
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Initialize Dash app
+dash_app = Dash(__name__, server=app, url_base_pathname='/dash/')
 
 # Route for home page
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Route to get the state device counts
 @app.route('/data')
-def get_data():
-    return jsonify(state_device_counts)
+def data():
+    return jsonify({state: {'gdp': state_gdp[state],
+                            'ios': counts['ios'],
+                            'android': counts['android'],
+                            'others': counts['others'],
+                            'total': counts['ios'] + counts['android'] + counts['others']}
+                    for state, counts in state_device_counts.items()})
 
 def consume_messages(consumer, output_topic):
     try:
@@ -59,7 +72,7 @@ def consume_messages(consumer, output_topic):
         consumer.close()
 
 def process_message(message):
-    global state_device_counts
+    global state_device_counts, time_series_data
 
     try:
         data = json.loads(message)
@@ -67,7 +80,6 @@ def process_message(message):
         device_type = data.get('device_type')
 
         if location in state_gdp:
-            state_device_counts[location]['gdp'] = state_gdp[location]
             if device_type == 'iOS':
                 state_device_counts[location]['ios'] += 1
             elif device_type == 'android':
@@ -75,16 +87,18 @@ def process_message(message):
             else:
                 state_device_counts[location]['others'] += 1
 
-            state_device_counts[location]['total'] = (state_device_counts[location]['ios'] + 
-                                                      state_device_counts[location]['android'] + 
-                                                      state_device_counts[location]['others'])
+            # Update time series data
+            timestamp = pd.Timestamp.now()
+            ios_count = sum(counts['ios'] for counts in state_device_counts.values())
+            android_count = sum(counts['android'] for counts in state_device_counts.values())
+            time_series_data.append({'timestamp': timestamp, 'ios': ios_count, 'android': android_count})
 
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON: {e}")
     except Exception as e:
         print(f"Error processing message: {e}")
 
-if __name__ == "__main__":
+def kafka_consumer_thread():
     # Kafka consumer configuration
     bootstrap_servers = os.getenv('BOOTSTRAP_SERVERS', 'localhost:29092')
     input_topic = os.getenv('KAFKA_OUTPUT_TOPIC', 'processed-data')
@@ -101,9 +115,46 @@ if __name__ == "__main__":
     # Subscribe to the topic
     consumer.subscribe([input_topic])
 
-    # Start consuming messages in a separate thread
-    import threading
-    threading.Thread(target=consume_messages, args=(consumer, input_topic), daemon=True).start()
+    try:
+        # Start consuming messages
+        consume_messages(consumer, input_topic)
+    except Exception as ex:
+        print(f"Exception: {ex}")
+    finally:
+        consumer.close()
 
-    # Start Flask app
-    app.run(debug=True)
+# Dash layout
+dash_app.layout = html.Div([
+    html.H1("iOS vs Android Devices Over Time"),
+    dcc.Graph(id='live-update-graph'),
+    dcc.Interval(
+        id='interval-component',
+        interval=1*1000,  # in milliseconds
+        n_intervals=0
+    )
+])
+
+# Dash callback
+@dash_app.callback(
+    Output('live-update-graph', 'figure'),
+    [Input('interval-component', 'n_intervals')]
+)
+def update_graph_live(n):
+    global time_series_data
+
+    df = pd.DataFrame(time_series_data)
+    if not df.empty:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df['timestamp'], y=df['ios'], mode='lines', name='iOS Devices'))
+        fig.add_trace(go.Scatter(x=df['timestamp'], y=df['android'], mode='lines', name='Android Devices'))
+        fig.update_layout(template='plotly_dark')
+        return fig
+    return go.Figure()
+
+if __name__ == "__main__":
+    # Start Kafka consumer thread
+    consumer_thread = Thread(target=kafka_consumer_thread)
+    consumer_thread.start()
+
+    # Run Flask app
+    app.run(debug=True, use_reloader=False)
