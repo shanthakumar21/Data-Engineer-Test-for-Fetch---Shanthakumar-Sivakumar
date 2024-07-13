@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>State Device Counts</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>State Device Counts</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>State</th>
+                <th>GDP Classification</th>
+                <th>iOS Devices</th>
+                <th>Android Devices</th>
+                <th>Other Devices</th>
+                <th>Total Devices</th>
+            </tr>
+        </thead>
+        <tbody id="state-device-counts">
+        </tbody>
+    </table>
+
+    <script>
+        function updateTable() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.getElementById('state-device-counts');
+                    tableBody.innerHTML = ''; // Clear existing rows
+
+                    // Convert data to an array and sort by total devices in descending order
+                    const sortedData = Object.entries(data).sort((a, b) => b[1].total - a[1].total);
+
+                    for (const [state, counts] of sortedData) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${state}</td>
+                            <td>${counts.gdp}</td>
+                            <td>${counts.ios}</td>
+                            <td>${counts.android}</td>
+                            <td>${counts.others}</td>
+                            <td>${counts.total}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    }
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        // Update the table every second
+        setInterval(updateTable, 1000);
+    </script>
+</body>
+</html>

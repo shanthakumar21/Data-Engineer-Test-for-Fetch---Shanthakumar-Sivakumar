@@ -3,28 +3,15 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
+import signal
 
-# Global variables to store device counts and previous timestamp
+# Global variables to store processed data, device counts, and skipped records
+processed_data_list = []  # List to store processed data
+skipped_records = []  # List to store skipped records
+previous_timestamp = 0  # Initialize previous_timestamp
 ios_count = {}
 android_count = {}
-print_interval = 1000  # Print interval in seconds
-last_print_time = 0
-previous_timestamp = 0
-skipped_records = []  # List to store skipped records
-
-# GDP data for states (simplified example, actual GDP data should be used)
-state_gdp = {
-    'AL': 'medium', 'AK': 'low', 'AZ': 'medium', 'AR': 'low', 'CA': 'high',
-    'CO': 'medium', 'CT': 'high', 'DE': 'medium', 'FL': 'high', 'GA': 'high',
-    'HI': 'medium', 'ID': 'low', 'IL': 'high', 'IN': 'medium', 'IA': 'medium',
-    'KS': 'medium', 'KY': 'medium', 'LA': 'medium', 'ME': 'low', 'MD': 'high',
-    'MA': 'high', 'MI': 'high', 'MN': 'medium', 'MS': 'low', 'MO': 'medium',
-    'MT': 'low', 'NE': 'low', 'NV': 'medium', 'NH': 'medium', 'NJ': 'high',
-    'NM': 'low', 'NY': 'high', 'NC': 'high', 'ND': 'low', 'OH': 'high',
-    'OK': 'low', 'OR': 'medium', 'PA': 'high', 'RI': 'medium', 'SC': 'medium',
-    'SD': 'low', 'TN': 'medium', 'TX': 'high', 'UT': 'medium', 'VT': 'low',
-    'VA': 'high', 'WA': 'high', 'WV': 'low', 'WI': 'medium', 'WY': 'low'
-}
 
 def create_producer(bootstrap_servers):
     producer_conf = {
@@ -37,10 +24,12 @@ def produce_message(producer, topic, message):
     producer.flush()
 
 def process_message(producer, output_topic, message):
-    global last_print_time, previous_timestamp  # Declare as global
+    global previous_timestamp, ios_count, android_count  # Declare as global
 
     try:
         data = json.loads(message)
+        user_id = data.get('user_id')
+        ip = data.get('ip')
         device_type = data.get('device_type')
         locale = data.get('locale')
         timestamp = data.get('timestamp')
@@ -54,6 +43,7 @@ def process_message(producer, output_topic, message):
         previous_timestamp = timestamp
 
         if device_type and locale and timestamp:
+            # Update device counts dynamically
             if device_type == 'iOS':
                 ios_count[locale] = ios_count.get(locale, 0) + 1
             elif device_type == 'android':
@@ -61,22 +51,21 @@ def process_message(producer, output_topic, message):
 
             # Processed data to be sent to new topic
             processed_data = {
+                'user_id': user_id,
+                'ip': ip,
                 'device_type': device_type,
-                'locale': locale,
+                'location': locale,
                 'timestamp': timestamp,
-                'count': ios_count[locale] if device_type == 'iOS' else android_count[locale]
+                'readable_timestamp': datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
             }
+
             produce_message(producer, output_topic, processed_data)
 
-            # Check if it's time to print based on print_interval
-            current_time = time.time()
-            if timestamp - last_print_time >= 10:
-                print(f"\nTimestamp: {timestamp}")
-                print("iOS devices:")
-                print(json.dumps(ios_count, indent=4))
-                print("\nAndroid devices:")
-                print(json.dumps(android_count, indent=4))
-                last_print_time = timestamp
+            # Add processed data to list
+            processed_data_list.append(processed_data)
+
+            # Display the processed data
+            print(json.dumps(processed_data, indent=4))
 
     except json.JSONDecodeError as e:
         logging.error(f"Error decoding JSON: {e}")
@@ -84,6 +73,8 @@ def process_message(producer, output_topic, message):
         logging.error(f"Error processing message: {e}")
 
 def consume_messages(bootstrap_servers, input_topic, output_topic):
+    global ios_count, android_count  # Declare as global
+
     # Consumer configuration
     consumer_conf = {
         'bootstrap.servers': bootstrap_servers,
@@ -100,6 +91,19 @@ def consume_messages(bootstrap_servers, input_topic, output_topic):
 
     # Subscribe to the topic
     consumer.subscribe([input_topic])
+    
+    def signal_handler(sig, frame):
+        print('Stopping consumer...')
+        consumer.close()
+        print("\nFinal counts:")
+        print("Processed Data:")
+        print(json.dumps(processed_data_list, indent=4))
+        print("\nSkipped Records:")
+        print(json.dumps(skipped_records, indent=4))
+        exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    
     try:
         while True:
             msg = consumer.poll(timeout=1.0)  # Poll for new messages
@@ -122,34 +126,15 @@ def consume_messages(bootstrap_servers, input_topic, output_topic):
     finally:
         # Close the consumer
         consumer.close()
-
-        # Final print of counts
         print("\nFinal counts:")
-        print("iOS devices:")
-        print(json.dumps(ios_count, indent=4))
-        print("\nAndroid devices:")
-        print(json.dumps(android_count, indent=4))
-
-        # Print top 3 states for each device type and correlate with GDP
-        print("\nTop 3 iOS states:")
-        top_ios_states = sorted(ios_count.items(), key=lambda x: x[1], reverse=True)[:3]
-        for state, count in top_ios_states:
-            print(f"{state}: {count} devices (GDP: {state_gdp.get(state, 'unknown')})")
-
-        print("\nTop 3 Android states:")
-        top_android_states = sorted(android_count.items(), key=lambda x: x[1], reverse=True)[:3]
-        for state, count in top_android_states:
-            print(f"{state}: {count} devices (GDP: {state_gdp.get(state, 'unknown')})")
-
-        # Print skipped records
-        print("\nSkipped records:")
-        for record in skipped_records:
-            print(record)
+        print("Processed Data:")
+        print(json.dumps(processed_data_list, indent=4))
+        print("\nSkipped Records:")
+        print(json.dumps(skipped_records, indent=4))
 
 logging.basicConfig(level=logging.DEBUG)
 
 if __name__ == "__main__":
-
     # Define the bootstrap server and topics
     bootstrap_servers = os.getenv('BOOTSTRAP_SERVERS', 'localhost:29092')
     input_topic = os.getenv('KAFKA_INPUT_TOPIC', 'user-login')
