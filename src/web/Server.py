@@ -107,11 +107,11 @@ def process_message(message):
     global state_device_counts, time_series_data
 
     try:
-        data = json.loads(message)
-        location = data.get('location')
+        data = json.loads(message) #collecting only necessary data for further steps. Static data and data deemed useless like ip are not collected
+        location = data.get('location') 
         device_type = data.get('device_type')
 
-        if location in state_gdp:
+        if location in state_gdp: 
             if device_type == 'iOS':
                 state_device_counts[location]['ios'] += 1
             elif device_type == 'android':

@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime
 import signal
-
+#variables to store data, using dictionary for ios_count and android_count as it requires storing more than one data type per record
 processed_data_list = []  
 skipped_records = []  
 previous_timestamp = 0  
@@ -55,7 +55,7 @@ def process_message(producer, output_topic, message):
                 'device_type': device_type,
                 'location': locale,
                 'timestamp': timestamp,
-                'readable_timestamp': datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+                'readable_timestamp': datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') #split time stamp
             }
 
             produce_message(producer, output_topic, processed_data)
