@@ -77,7 +77,7 @@ Here, you should be able to see the real-time data and insights provided by the 
 
 
 
-<h3>Kafka Consumer</h3>
+<h2>Kafka Consumer</h2>
 
 The Kafka consumer is located in src/consumer/consumer.py. It plays a crucial role in the data pipeline by reading messages from the Kafka topic and processing them. 
 
@@ -111,7 +111,7 @@ The Kafka consumer is located in src/consumer/consumer.py. It plays a crucial ro
 ->Handles various Kafka errors gracefully to ensure robustness.
 
 
-<h3>Flask Server</h3>
+<h2>Flask Server</h2>
 
 ->The Flask server is located in src/web/Server.py. It serves as the backend for the web application and provides several key functionalities:
 
