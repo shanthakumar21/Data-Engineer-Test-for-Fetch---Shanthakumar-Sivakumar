@@ -162,7 +162,7 @@ The Dockerfiles for the consumer and the Flask server are located in src/consume
 
 <h3>Notes</h3>
 
-->Ensure the Kafka consumer starts before the Flask server to allow data to be available when the server starts. The wait time is set to 50s for now. Update it in main function of the server.py file. 
+->Ensure the Kafka consumer starts before the Flask server to allow data to be available when the server starts. The wait time is set to 50s for now. Update it in main function of the server.py file if needed! 
 
 ->The project is configured to restart the consumer on failure up to 10 times.
 
