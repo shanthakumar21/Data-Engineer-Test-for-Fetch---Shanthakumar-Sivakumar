@@ -6,10 +6,9 @@ import time
 from datetime import datetime
 import signal
 
-# Global variables to store processed data, device counts, and skipped records
-processed_data_list = []  # List to store processed data
-skipped_records = []  # List to store skipped records
-previous_timestamp = 0  # Initialize previous_timestamp
+processed_data_list = []  
+skipped_records = []  
+previous_timestamp = 0  
 ios_count = {}
 android_count = {}
 
@@ -73,30 +72,30 @@ def process_message(producer, output_topic, message):
         logging.error(f"Error processing message: {e}")
 
 def consume_messages(bootstrap_servers, input_topic, output_topic):
-    global ios_count, android_count  # Declare as global
+    global ios_count, android_count  
 
-    # Consumer configuration
+    # Consumer configurations
     consumer_conf = {
         'bootstrap.servers': bootstrap_servers,
         'group.id': 'my-group',
         'auto.offset.reset': 'earliest'
     }
 
-    # Create Consumer instance
+    # Creating Consumer instance here
     consumer = Consumer(consumer_conf)
     producer = create_producer(bootstrap_servers)
     bootstrap_server_url = consumer_conf['bootstrap.servers']
 
     print(f"Bootstrap Server URL: {bootstrap_server_url}")
 
-    # Subscribe to the topic
+    # Subscribe to the topic 
     consumer.subscribe([input_topic])
     
     def signal_handler(sig, frame):
         print('Stopping consumer...')
         consumer.close()
         print("\nFinal counts:")
-        print("Processed Data:")
+        print("Processed D/ata:")
         print(json.dumps(processed_data_list, indent=4))
         print("\nSkipped Records:")
         print(json.dumps(skipped_records, indent=4))
@@ -106,13 +105,12 @@ def consume_messages(bootstrap_servers, input_topic, output_topic):
     
     try:
         while True:
-            msg = consumer.poll(timeout=1.0)  # Poll for new messages
+            msg = consumer.poll(timeout=1.0)  # Polling for new messages
 
             if msg is None:
                 continue
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
-                    # End of partition event
                     print('%% %s [%d] reached end at offset %d\n' %
                           (msg.topic(), msg.partition(), msg.offset()))
                 elif msg.error():

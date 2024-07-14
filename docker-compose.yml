@@ -45,13 +45,28 @@ services:
   my-python-consumer:
     build:
       context: .
-      dockerfile: Dockerfile.consumer
+      dockerfile: src/consumer/Dockerfile.consumer
     depends_on:
       - kafka
     restart: on-failure:10
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_INPUT_TOPIC: user-login
+      KAFKA_OUTPUT_TOPIC: processed-data
+    networks:
+      - kafka-network
+
+  flask-server:
+    build:
+      context: .
+      dockerfile: src/web/Dockerfile.server
+    depends_on:
+      - kafka
+      - my-python-consumer
+    ports:
+      - "5000:5000"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_OUTPUT_TOPIC: processed-data
     networks:
       - kafka-network

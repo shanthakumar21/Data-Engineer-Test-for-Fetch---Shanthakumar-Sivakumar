@@ -1,5 +1,6 @@
 import os
 import json
+import requests
 from collections import defaultdict
 from confluent_kafka import Consumer, KafkaError
 from flask import Flask, render_template, jsonify
@@ -8,8 +9,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
+import time
 
-# Dictionary mapping US state abbreviations to GDP classifications
+# Dictionary mapping US state abbreviations to GDP classifications, further used to compare device type with GDP of a state
 state_gdp = {
     'AL': 'medium', 'AK': 'low', 'AZ': 'medium', 'AR': 'low', 'CA': 'high',
     'CO': 'medium', 'CT': 'high', 'DE': 'medium', 'FL': 'high', 'GA': 'high',
@@ -47,28 +49,58 @@ def data():
                             'total': counts['ios'] + counts['android'] + counts['others']}
                     for state, counts in state_device_counts.items()})
 
+@app.route('/insights')
+# This function employs simple logic which continuously updates insights for the data points that are being fed
+def insights():
+    global state_device_counts
+
+    insights = []
+
+    # Sort states by total device counts
+    sorted_states = sorted(state_device_counts.items(), key=lambda item: sum(item[1].values()), reverse=True)
+
+    if sorted_states:
+        top_state = sorted_states[0][0]
+        top_total_devices = sum(sorted_states[0][1].values())
+        insights.append(f"The state with the highest total devices is {top_state} with {top_total_devices} devices.")
+
+        ios_states = [state for state, counts in sorted_states if counts['ios'] > 0]
+        android_states = [state for state, counts in sorted_states if counts['android'] > 0]
+
+        if ios_states:
+            insights.append(f"States with iOS devices: {', '.join(ios_states)}")
+        if android_states:
+            insights.append(f"States with Android devices: {', '.join(android_states)}")
+
+        high_gdp_ios_preference = [state for state, counts in sorted_states if state_gdp[state] == 'high' and counts['ios'] > counts['android']]
+        if high_gdp_ios_preference:
+            insights.append(f"States like {', '.join(high_gdp_ios_preference)} have a high GDP and a higher number of iOS devices.")
+
+        low_gdp_android_preference = [state for state, counts in sorted_states if state_gdp[state] == 'low' and counts['android'] > counts['ios']]
+        if low_gdp_android_preference:
+            insights.append(f"States like {', '.join(low_gdp_android_preference)} have a low GDP and as one would assume also has a higher number of Android devices.")
+
+    return jsonify(insights)
+
 def consume_messages(consumer, output_topic):
     try:
         while True:
-            msg = consumer.poll(timeout=1.0)  # Poll for new messages
+            msg = consumer.poll(timeout=1.0)  
 
             if msg is None:
                 continue
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
-                    # End of partition event
                     print('%% %s [%d] reached end at offset %d\n' %
                           (msg.topic(), msg.partition(), msg.offset()))
                 elif msg.error():
                     raise KafkaException(msg.error())
             else:
-                # Process the message
                 process_message(msg.value().decode("utf-8"))
 
     except KeyboardInterrupt:
         pass
     finally:
-        # Close the consumer
         consumer.close()
 
 def process_message(message):
@@ -109,7 +141,7 @@ def kafka_consumer_thread():
         'auto.offset.reset': 'earliest'
     }
 
-    # Create Consumer instance
+    # Creating Consumer instance
     consumer = Consumer(consumer_conf)
 
     # Subscribe to the topic
@@ -127,6 +159,7 @@ def kafka_consumer_thread():
 dash_app.layout = html.Div([
     html.H1("iOS vs Android Devices Over Time"),
     dcc.Graph(id='live-update-graph'),
+    html.Div(id='insights', style={'marginTop': 20}),
     dcc.Interval(
         id='interval-component',
         interval=1*1000,  # in milliseconds
@@ -134,7 +167,7 @@ dash_app.layout = html.Div([
     )
 ])
 
-# Dash callback
+# Dash callback for updating the graph
 @dash_app.callback(
     Output('live-update-graph', 'figure'),
     [Input('interval-component', 'n_intervals')]
@@ -151,10 +184,27 @@ def update_graph_live(n):
         return fig
     return go.Figure()
 
+# Dash callback for updating insights
+@dash_app.callback(
+    Output('insights', 'children'),
+    [Input('interval-component', 'n_intervals')]
+)
+def update_insights(n):
+    response = requests.get('http://0.0.0.0:5000/insights') #using 0.0.0.0 to access the webpage outside the containers localhost
+    insights = response.json()
+
+    return html.Div([
+        html.H2("Insights"),
+        html.Ul([html.Li(insight) for insight in insights])
+    ])
+
 if __name__ == "__main__":
+    # Wait for Kafka consumer to start
+    time.sleep(50)  # Adjust the sleep time as needed
+
     # Start Kafka consumer thread
     consumer_thread = Thread(target=kafka_consumer_thread)
     consumer_thread.start()
 
     # Run Flask app
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False, host='0.0.0.0')

@@ -7,16 +7,16 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
         body {
-            background-color: #f0f8ff; /* Light blue background color */
-            padding: 20px; /* Add padding for content */
-            font-family: Arial, sans-serif; /* Use Arial font */
+            background-color: #f0f8ff; 
+            padding: 20px; 
+            font-family: Arial, sans-serif; 
         }
         .header {
             background-color: #283593; /* Fetch Rewards brand color */
             color: #ffffff;
             text-align: center;
             padding: 20px 0;
-            margin-bottom: 20px; /* Add space below the header */
+            margin-bottom: 20px; 
         }
         .content {
             display: flex;
@@ -24,11 +24,11 @@
             justify-content: space-between;
         }
         .chart-container, .table-container {
-            flex-basis: 48%; /* Adjust width of containers */
+            flex-basis: 48%; 
             padding: 20px;
-            background-color: #ffffff; /* White background for chart and table containers */
-            border-radius: 8px; /* Rounded corners for containers */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Drop shadow for containers */
+            background-color: #ffffff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
         }
         table {
             width: 100%;
@@ -81,7 +81,7 @@
                     const tableBody = document.getElementById('state-device-counts');
                     tableBody.innerHTML = ''; // Clear existing rows
 
-                    // Convert data to an array and sort by total devices in descending order
+                    // Converting data to an array and sort by total devices in descending order
                     const sortedData = Object.entries(data).sort((a, b) => b[1].total - a[1].total);
 
                     for (const [state, counts] of sortedData) {
@@ -101,7 +101,7 @@
                 .catch(error => console.error('Error fetching data:', error));
         }
 
-        // Update the table every second
+        // Updating the table every second
         setInterval(updateTable, 1000);
     </script>
 </body>
