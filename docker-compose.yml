@@ -41,7 +41,8 @@ services:
       KAFKA_TOPIC: user-login
     networks:
       - kafka-network
-
+#configuration for the consumer conatiner
+#file excuted in consumer.py
   my-python-consumer:
     build:
       context: .
@@ -51,11 +52,12 @@ services:
     restart: on-failure:10
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
-      KAFKA_INPUT_TOPIC: user-login
+      KAFKA_INPUT_TOPIC: user-login               #using the data produced by the producer
       KAFKA_OUTPUT_TOPIC: processed-data
     networks:
       - kafka-network
-
+#configuration for the flask server container
+#file executed is server.py
   flask-server:
     build:
       context: .
@@ -64,10 +66,10 @@ services:
       - kafka
       - my-python-consumer
     ports:
-      - "5000:5000"
+      - "5000:5000"               #running server on port 5000
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
-      KAFKA_OUTPUT_TOPIC: processed-data
+      KAFKA_OUTPUT_TOPIC: processed-data      #using the data produced by consumer.py
     networks:
       - kafka-network
 

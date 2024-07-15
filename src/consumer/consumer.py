@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime
 import signal
-#variables to store data, using dictionary for ios_count and android_count as it requires storing more than one data type per record
+#variables to store data, using dictionary for ios_count and android_count as it requires storing the data as key:value pair to easy further steps of preprocessing
 processed_data_list = []  
 skipped_records = []  
 previous_timestamp = 0  
@@ -36,7 +36,7 @@ def process_message(producer, output_topic, message):
         # Check for out-of-place records
         if timestamp < previous_timestamp:
             logging.warning(f"Skipping out-of-place record: {data}")
-            skipped_records.append({'timestamp': timestamp, 'device_type': device_type})  # Store the skipped record
+            skipped_records.append({'timestamp': timestamp, 'device_type': device_type})  # Store the skipped record to display at the end
             return
 
         previous_timestamp = timestamp
@@ -109,14 +109,14 @@ def consume_messages(bootstrap_servers, input_topic, output_topic):
 
             if msg is None:
                 continue
-            if msg.error():
+            if msg.error(): #handling kafka errors here
                 if msg.error().code() == KafkaError._PARTITION_EOF:
                     print('%% %s [%d] reached end at offset %d\n' %
                           (msg.topic(), msg.partition(), msg.offset()))
                 elif msg.error():
                     raise KafkaException(msg.error())
             else:
-                # Process the message
+                # Process the message, calls continously to process the data and store it under the new topic "processed-data"
                 process_message(producer, output_topic, msg.value().decode("utf-8"))
 
     except KeyboardInterrupt:

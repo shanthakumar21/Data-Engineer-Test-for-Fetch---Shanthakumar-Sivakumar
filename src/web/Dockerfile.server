@@ -9,6 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/web/ /app/
 
 EXPOSE 5000
-EXPOSE 5001
-
+EXPOSE 5001   
+#exposing port 5001, just in case there is a need for debugging inside the container
 CMD ["python", "Server.py"]
